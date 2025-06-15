@@ -29,58 +29,23 @@ A simple command-line **Retrieval-Augmented Generation (RAG)** chatbot using:
 
 ---
 
-## 📂 Project Structure
-mini_rag_app/
-├── rag_app.py           # Main script
-├── data/
-│   ├── knowledge.txt    # Plain text input
-│   └── *.pdf            # Any PDF files
-├── .env                 # Environment variables
-├── requirements.txt     # Python dependencies
-└── README.md            # This file
+## 🧠 RAG Architecture Overview
 
+The Retrieval-Augmented Generation (RAG) architecture enhances LLM responses by grounding them in relevant, up-to-date context from external documents.
 
-+------------------+
-|   User Query     |
-| (Natural Language|
-|   Question)      |
-+--------+---------+
-         |
-         v
-+--------------------------+
-|   Embedding Model        |
-|  (e.g. MiniLM, BERT)     |
-|  Converts query to vector|
-+------------+-------------+
-             |
-             v
-+------------------------------+
-|     Vector Store / DB        |
-| (e.g. FAISS, Chroma, Pinecone)|
-| Stores document embeddings   |
-+--------------+---------------+
-               |
-               v
-+-----------------------------+
-|  Top-k Similarity Search    |
-|  (Find top-N relevant docs) |
-+--------------+--------------+
-               |
-               v
-+------------------------------+
-| Retrieved Document Chunks   |
-| (Context to inform LLM)     |
-+--------------+--------------+
-               |
-               v
-+------------------------------+
-|   Large Language Model       |
-| (e.g. Claude, GPT-4, etc.)   |
-| Combines Query + Context     |
-| => Generates Answer          |
-+--------------+--------------+
-               |
-               v
-+------------------------------+
-|         Final Answer         |
-+------------------------------+
+---
+
+### 📊 Architecture Diagram
+
+![RAG Architecture](./images/A_flowchart_titled_"RAG_Architecture"_in_bold,_bla.png)
+
+---
+
+### 🔍 Components
+
+- **User Query**: Input question from the user.  
+- **Embedding Model**: Converts query and documents into high-dimensional vectors.  
+- **Vector Database** (e.g. Chroma, FAISS): Stores document embeddings and retrieves semantically similar ones using vector similarity search.  
+- **Retriever**: Fetches relevant chunks from the vector DB based on similarity to the user query.  
+- **LLM** (e.g. Claude, GPT): Generates a grounded answer based on retrieved context.  
+- **Answer + Sources**: Final output includes the generated answer and references to source documents.  
