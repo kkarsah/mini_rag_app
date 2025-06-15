@@ -37,7 +37,7 @@ The Retrieval-Augmented Generation (RAG) architecture enhances LLM responses by 
 
 ### 📊 Architecture Diagram
 
-![RAG Architecture](./images/A_flowchart_titled_"RAG_Architecture"_in_bold,_bla.png)
+![RAG Architecture](./images/rag.png)
 
 ---
 
