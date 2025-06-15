@@ -1,68 +1,72 @@
 import os
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+import warnings
 from dotenv import load_dotenv
-import glob
-
-from langchain_community.document_loaders import UnstructuredPDFLoader, WebBaseLoader
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_anthropic import ChatAnthropic
 from langchain.chains import RetrievalQA
+from rag_loader import load_all_documents
+from langchain_anthropic import ChatAnthropic
+from transformers import logging as hf_logging
+from langchain.text_splitter import TokenTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.chains import RetrievalQAWithSourcesChain
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# 🔁 Load environment variables
+warnings.filterwarnings("ignore")
+hf_logging.set_verbosity_error()
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 load_dotenv()
 
-# ✅ Make sure ANTHROPIC_API_KEY is set
+# ✅ Check API key
 if not os.getenv("ANTHROPIC_API_KEY"):
     raise ValueError("Missing ANTHROPIC_API_KEY in .env")
 
-# 📄 Load your knowledge base
-#loader = TextLoader("data/knowledge.txt")
-loaders = [
-    TextLoader("data/knowledge.txt"),  # 📄 Plain text
-    #UnstructuredPDFLoader("data/sample.pdf"),  # 📚 PDF
-    WebBaseLoader(["https://judicial.gov.gh/index.php/the-constitution"])  # 🌐 Web page
-]
-
-documents = []
-
-pdf_paths = glob.glob("data/*.pdf")
-for pdf in pdf_paths:
-    loader = UnstructuredPDFLoader(pdf)
-    documents.extend(loader.load())
-
-for loader in loaders:
-    documents.extend(loader.load())
-
-# ✂️ Split text into chunks
-splitter = CharacterTextSplitter(chunk_size=300, chunk_overlap=50)
-docs = splitter.split_documents(documents)
-
-# 🧠 Use HuggingFace embeddings (no API key needed)
-embedding = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-# 📦 Create vector DB
-vectordb = Chroma.from_documents(docs, embedding=embedding)
-
-# 🔍 Setup retriever
-retriever = vectordb.as_retriever()
-
-# 🤖 Use Claude (Anthropic) for answers
-llm = ChatAnthropic(
-    model="claude-3-haiku-20240307",
-    temperature=0.3
+# 📚 Load docs
+documents = load_all_documents(
+    data_dir="data",
+    text_files=["data/knowledge.txt"],
+    web_urls=["https://judicial.gov.gh/index.php/the-constitution"],
+    use_ocr=False,  # Set to True if you have Tesseract installed
 )
 
-# 🔗 Connect retriever and LLM into a chain
-qa = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
+# 🔍 Optional: Debug document metadata
+for doc in documents:
+    print(doc.metadata)
 
-# 🎤 Ask your questions
+# ✂️ Split text
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500, chunk_overlap=50, separators=["\n\n", "\n", ".", " ", ""]
+)
+docs = splitter.split_documents(documents)
+
+
+# 🔍 Embed and store
+embedding = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectordb = Chroma.from_documents(docs, embedding=embedding)
+retriever = vectordb.as_retriever()
+
+# 🤖 Setup LLM
+llm = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.3)
+qa = RetrievalQAWithSourcesChain.from_llm(llm=llm, retriever=retriever)
+
+# 💬 Ask questions
 print("Ask your questions (type 'exit' to quit):\n")
 while True:
     query = input(">> ")
     if query.lower() in ["exit", "quit"]:
         break
-    response = qa.invoke(query)
-    print(f"\n🧠 Answer: {response}\n")
+
+    result = qa.invoke({"question": query})
+    answer = result["answer"]
+    sources = result.get("sources", "None")
+
+    print(f"\n🧠 Answer:\n{answer}\n")
+    print(f"📚 Sources: {sources}")
+
+    if sources and sources != "None":
+        print("📚 Sources:")
+        for src in sources.split(", "):
+            print("-", src)
+    else:
+        print("📚 Sources: None")
